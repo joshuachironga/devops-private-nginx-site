@@ -1,4 +1,4 @@
-name: Deploy to Private EC2
+name: CI/CD Deploy to Private EC2
 
 on:
   push:
@@ -10,46 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      # 1️⃣ Checkout the code
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      # 2️⃣ Setup SSH key for Bastion
-      - name: Setup SSH Key
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      # 3️⃣ Copy repo to Bastion
-      - name: Copy Project to Bastion
-        run: |
-          scp -o StrictHostKeyChecking=no -i key.pem -r . \
-          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:~/app
-
-      # 4️⃣ Deploy from Bastion to Private EC2
-      - name: Deploy from Bastion to Private EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no -i key.pem \
-          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} << 'EOF'
-
-            # Copy files to private EC2
-            scp -o StrictHostKeyChecking=no -r ~/app ubuntu@10.0.141.140:~
-
-            # SSH into Private EC2
-            ssh ubuntu@10.0.141.140 << 'INNER'
-
-              cd ~/app
-
-              # 1️⃣ Remove any existing Docker containers safely
-              sudo docker ps -aq | xargs -r sudo docker rm -f
-
-              # 2️⃣ Build Docker image
-              sudo docker build -t my-app .
-
-              # 3️⃣ Run container on port 80
-              sudo docker run -d -p 80:80 my-app
-
-            INNER
-
+    - name: Deploy via Bastion
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.BASTION_IP }}
+        username: ubuntu
+        key: ${{ secrets.BASTION_KEY }}
+        script: |
+          # SSH into Private EC2 and deploy
+          ssh ubuntu@10.0.141.140 << 'EOF'
+            cd ~/app
+            git reset --hard
+            git pull origin main
+            sudo docker ps -aq | xargs -r sudo docker rm -f
+            sudo docker build -t my-app .
+            sudo docker run -d -p 80:80 my-app
           EOF
