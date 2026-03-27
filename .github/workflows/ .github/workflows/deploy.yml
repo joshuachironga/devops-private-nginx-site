@@ -1,0 +1,32 @@
+ name: CI/CD Deploy to Private EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Copy app to Bastion and deploy
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.BASTION_IP }}
+        username: ubuntu
+        key: ${{ secrets.BASTION_KEY }}
+        script: |
+          # Copy app to private EC2
+          scp -r ~/devops-private-nginx-site ubuntu@10.0.141.140:~/app
+
+          # SSH into private EC2
+          ssh ubuntu@10.0.141.140 << 'EOF'
+            cd ~/app
+            sudo docker ps -aq | xargs -r sudo docker rm -f
+            sudo docker build -t my-app .
+            sudo docker run -d -p 80:80 my-app
+          EOF
