@@ -1,25 +1,41 @@
-- name: Deploy via Bastion
-  uses: appleboy/ssh-action@v0.1.6
-  with:
-    host: ${{ secrets.BASTION_IP }}
-    username: ubuntu
-    key: ${{ secrets.BASTION_KEY }}
-    debug: true
-    script: |
-      echo "Connected to Bastion"
-      whoami
-      hostname
+name: CI/CD Deploy to Private EC2
 
-      echo "Testing SSH to Private EC2..."
-      ssh -i ~/.ssh/private.pem -o StrictHostKeyChecking=no ubuntu@10.0.141.140 << 'EOF'
-        echo "Inside Private EC2"
-        hostname
+on:
+  push:
+    branches:
+      - main
 
-        cd ~/app
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-        sudo docker ps -aq | xargs -r sudo docker rm -f
-        sudo docker build -t my-app .
-        sudo docker run -d -p 80:80 my-app
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        echo "Deployment complete"
-      EOF
+      - name: Deploy via Bastion
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.BASTION_IP }}
+          username: ubuntu
+          key: ${{ secrets.BASTION_KEY }}
+          debug: true
+          script: |
+            echo "Connected to Bastion"
+            whoami
+            hostname
+
+            echo "Connecting to Private EC2..."
+
+            ssh -i ~/.ssh/private.pem -o StrictHostKeyChecking=no ubuntu@10.0.141.140 << 'EOF'
+              echo "Inside Private EC2"
+              hostname
+
+              cd ~/app
+
+              sudo docker ps -aq | xargs -r sudo docker rm -f
+              sudo docker build -t my-app .
+              sudo docker run -d -p 80:80 my-app
+
+              echo "Deployment complete"
+            EOF
