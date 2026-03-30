@@ -23,7 +23,7 @@ jobs:
           key: ${{ secrets.BASTION_KEY }}
           script: |
             echo "Connecting to private EC2..."
-            ssh -o StrictHostKeyChecking=no ubuntu@10.0.141.140 << 'EOF'
+            ssh -A -o StrictHostKeyChecking=no ubuntu@10.0.141.140 << 'EOF'
               echo "Navigating to app folder"
               cd ~/app
 
