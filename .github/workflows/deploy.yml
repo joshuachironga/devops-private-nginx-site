@@ -1,41 +1,35 @@
-name: CI/CD Deploy to Private EC2
+name: CI/CD Deploy to EC2 via Bastion
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy via Bastion
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.BASTION_IP }}
-          username: ubuntu
-          key: ${{ secrets.BASTION_KEY }}
-          debug: true
-          script: |
-            echo "Connected to Bastion"
-            whoami
-            hostname
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
 
-            echo "Connecting to Private EC2..."
+      - name: Add bastion to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
 
-            ssh -i ~/.ssh/private.pem -o StrictHostKeyChecking=no ubuntu@10.0.141.140 << 'EOF'
-              echo "Inside Private EC2"
-              hostname
-
-              cd ~/app
-
-              sudo docker ps -aq | xargs -r sudo docker rm -f
-              sudo docker build -t my-app .
-              sudo docker run -d -p 80:80 my-app
-
-              echo "Deployment complete"
-            EOF
+      - name: Deploy to private EC2 via bastion
+        run: |
+          ssh -i ~/.ssh/key \
+          -o StrictHostKeyChecking=no \
+          -o ProxyJump=${{ secrets.EC2_USER }}@${{ secrets.BASTION_HOST }} \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
+            cd ~/devops-private-nginx-site &&
+            git pull origin main &&
+            chmod +x deploy.sh &&
+            ./deploy.sh
+          "
