@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Deploy to Private EC2 via Bastion
 
 on:
   push:
@@ -13,16 +13,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
 
-      - name: Deploy to server
+          # write key safely (fix whitespace issues)
+          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+
+          # add bastion to known hosts
+          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy via Bastion to Private EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@YOUR_SERVER_IP << 'EOF'
-            cd /var/www/html
-            git pull origin main
-            docker compose up -d --build
+          ssh -i ~/.ssh/key \
+            -o StrictHostKeyChecking=no \
+            -o ProxyJump=${{ secrets.EC2_USER }}@${{ secrets.BASTION_HOST }} \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+              cd ~/devops-private-nginx-site || exit 1
+              git pull origin main
+              chmod +x deploy.sh
+              ./deploy.sh
+
           EOF
