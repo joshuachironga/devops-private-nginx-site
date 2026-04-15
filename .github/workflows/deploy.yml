@@ -13,28 +13,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-
-          # write key safely
-          echo "${{ secrets.EC2_SSH_KEY }}" | tr -d '\r' > ~/.ssh/key
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
 
-          # add bastion to known hosts
-          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          cat > ~/.ssh/config <<EOF
+          Host bastion
+            HostName ${{ secrets.BASTION_HOST }}
+            User ubuntu
+            IdentityFile ~/.ssh/key
+            StrictHostKeyChecking no
 
-      - name: Deploy to Private EC2 via Bastion
-        run: |
-          ssh -i ~/.ssh/key \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=no \
-            -J ${{ secrets.EC2_USER }}@${{ secrets.BASTION_HOST }} \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-
-              cd ~/devops-private-nginx-site || exit 1
-              git pull origin main
-              chmod +x deploy.sh
-              ./deploy.sh
-
+          Host private
+            HostName ${{ secrets.EC2_HOST }}
+            User ubuntu
+            IdentityFile ~/.ssh/key
+            ProxyJump bastion
+            StrictHostKeyChecking no
           EOF
+
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy
+        run: |
+          ssh private "
+            cd ~/devops-private-nginx-site &&
+            git pull origin main &&
+            chmod +x deploy.sh &&
+            ./deploy.sh
+          "
