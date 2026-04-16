@@ -19,14 +19,11 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
 
-          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy via Bastion
+      - name: Deploy
         run: |
           ssh -i ~/.ssh/key \
             -o StrictHostKeyChecking=no \
-            -o ProxyJump=ubuntu@${{ secrets.BASTION_HOST }} \
+            -J ubuntu@${{ secrets.BASTION_HOST }} \
             ubuntu@${{ secrets.EC2_HOST }} "
               cd ~/devops-private-nginx-site &&
               git pull origin main &&
