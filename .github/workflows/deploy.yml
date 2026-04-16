@@ -19,10 +19,11 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
 
-      - name: Deploy
+      - name: Deploy via Bastion
         run: |
           ssh -i ~/.ssh/key \
             -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
             -J ubuntu@${{ secrets.BASTION_HOST }} \
             ubuntu@${{ secrets.EC2_HOST }} "
               cd ~/devops-private-nginx-site &&
