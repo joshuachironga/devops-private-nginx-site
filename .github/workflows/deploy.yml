@@ -13,36 +13,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
 
-          cat > ~/.ssh/config <<EOF
-          Host bastion
-            HostName ${{ secrets.BASTION_HOST }}
-            User ubuntu
-            IdentityFile ~/.ssh/key
-            StrictHostKeyChecking no
-            UserKnownHostsFile=/dev/null
-
-          Host private
-            HostName ${{ secrets.EC2_HOST }}
-            User ubuntu
-            IdentityFile ~/.ssh/key
-            ProxyJump bastion
-            StrictHostKeyChecking no
-            UserKnownHostsFile=/dev/null
-          EOF
-
-          chmod 600 ~/.ssh/config
-
-      - name: Deploy
+      - name: Add bastion + private to known hosts
         run: |
-          ssh private "
-            cd ~/devops-private-nginx-site &&
-            git pull origin main &&
-            chmod +x deploy.sh &&
-            ./deploy.sh
-          "
+          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via Bastion to Private EC2
+        run: |
+          ssh -i ~/.ssh/key \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -J ubuntu@${{ secrets.BASTION_HOST }} \
+            ubuntu@${{ secrets.EC2_HOST }} "
+              cd ~/devops-private-nginx-site &&
+              git pull origin main &&
+              chmod +x deploy.sh &&
+              ./deploy.sh
+            "
