@@ -19,15 +19,30 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
 
-      - name: Deploy via Bastion
+          cat > ~/.ssh/config <<EOF
+          Host bastion
+            HostName ${{ secrets.BASTION_HOST }}
+            User ubuntu
+            IdentityFile ~/.ssh/key
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+
+          Host private
+            HostName ${{ secrets.EC2_HOST }}
+            User ubuntu
+            IdentityFile ~/.ssh/key
+            ProxyJump bastion
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          EOF
+
+          chmod 600 ~/.ssh/config
+
+      - name: Deploy
         run: |
-          ssh -i ~/.ssh/key \
-            -o StrictHostKeyChecking=no \
-            -o UserKnownHostsFile=/dev/null \
-            -J ubuntu@${{ secrets.BASTION_HOST }} \
-            ubuntu@${{ secrets.EC2_HOST }} "
-              cd ~/devops-private-nginx-site &&
-              git pull origin main &&
-              chmod +x deploy.sh &&
-              ./deploy.sh
-            "
+          ssh private "
+            cd ~/devops-private-nginx-site &&
+            git pull origin main &&
+            chmod +x deploy.sh &&
+            ./deploy.sh
+          "
