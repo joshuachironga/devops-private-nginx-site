@@ -16,27 +16,37 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
+
+          # Write private key safely (preserves formatting)
+          cat <<EOF > ~/.ssh/recovery-key
+${{ secrets.EC2_SSH_KEY }}
+EOF
+
           chmod 600 ~/.ssh/recovery-key
 
-          cat > ~/.ssh/config <<EOF
-          Host bastion
-            HostName ${{ secrets.BASTION_HOST }}
-            User ubuntu
-            IdentityFile ~/.ssh/recovery-key
-            StrictHostKeyChecking no
+          # SSH config (Bastion + Private EC2)
+          cat <<EOF > ~/.ssh/config
+Host bastion
+  HostName ${{ secrets.BASTION_HOST }}
+  User ubuntu
+  IdentityFile ~/.ssh/recovery-key
+  StrictHostKeyChecking no
 
-          Host private-ec2
-            HostName ${{ secrets.EC2_HOST }}
-            User ubuntu
-            IdentityFile ~/.ssh/recovery-key
-            ProxyJump bastion
-            StrictHostKeyChecking no
-          EOF
+Host private-ec2
+  HostName ${{ secrets.EC2_HOST }}
+  User ubuntu
+  IdentityFile ~/.ssh/recovery-key
+  ProxyJump bastion
+  StrictHostKeyChecking no
+EOF
 
           chmod 600 ~/.ssh/config
 
-      - name: Deploy
+      - name: Test SSH to Bastion
+        run: |
+          ssh -o ConnectTimeout=10 bastion "echo 'Connected to Bastion'"
+
+      - name: Deploy to Private EC2
         run: |
           ssh private-ec2 "
             cd ~/devops-private-nginx-site &&
