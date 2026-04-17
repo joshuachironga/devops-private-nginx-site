@@ -17,14 +17,12 @@ jobs:
         run: |
           mkdir -p ~/.ssh
 
-          # Write private key safely (preserves formatting)
           cat <<EOF > ~/.ssh/recovery-key
 ${{ secrets.EC2_SSH_KEY }}
 EOF
 
           chmod 600 ~/.ssh/recovery-key
 
-          # SSH config (Bastion + Private EC2)
           cat <<EOF > ~/.ssh/config
 Host bastion
   HostName ${{ secrets.BASTION_HOST }}
@@ -44,7 +42,7 @@ EOF
 
       - name: Test SSH to Bastion
         run: |
-          ssh -o ConnectTimeout=10 bastion "echo 'Connected to Bastion'"
+          ssh -o ConnectTimeout=10 bastion "echo Connected"
 
       - name: Deploy to Private EC2
         run: |
