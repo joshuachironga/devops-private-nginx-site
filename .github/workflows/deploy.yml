@@ -17,38 +17,29 @@ jobs:
         run: |
           mkdir -p ~/.ssh
 
-          cat <<EOF > ~/.ssh/recovery-key
-${{ secrets.EC2_SSH_KEY }}
-EOF
-
+          # Write private key safely
+          printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
           chmod 600 ~/.ssh/recovery-key
 
-          cat <<EOF > ~/.ssh/config
-Host bastion
-  HostName ${{ secrets.BASTION_HOST }}
-  User ubuntu
-  IdentityFile ~/.ssh/recovery-key
-  StrictHostKeyChecking no
+          # Create SSH config line-by-line (avoids YAML issues)
+          echo "Host bastion" >> ~/.ssh/config
+          echo "  HostName ${{ secrets.BASTION_HOST }}" >> ~/.ssh/config
+          echo "  User ubuntu" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/recovery-key" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 
-Host private-ec2
-  HostName ${{ secrets.EC2_HOST }}
-  User ubuntu
-  IdentityFile ~/.ssh/recovery-key
-  ProxyJump bastion
-  StrictHostKeyChecking no
-EOF
+          echo "Host private-ec2" >> ~/.ssh/config
+          echo "  HostName ${{ secrets.EC2_HOST }}" >> ~/.ssh/config
+          echo "  User ubuntu" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/recovery-key" >> ~/.ssh/config
+          echo "  ProxyJump bastion" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 
           chmod 600 ~/.ssh/config
 
       - name: Test SSH to Bastion
-        run: |
-          ssh -o ConnectTimeout=10 bastion "echo Connected"
+        run: ssh -o ConnectTimeout=10 bastion "echo Connected"
 
       - name: Deploy to Private EC2
         run: |
-          ssh private-ec2 "
-            cd ~/devops-private-nginx-site &&
-            git pull origin main &&
-            chmod +x deploy.sh &&
-            ./deploy.sh
-          "
+          ssh private-ec2 "cd ~/devops-private-nginx-site && git pull origin main && chmod +x deploy.sh && ./deploy.sh"
