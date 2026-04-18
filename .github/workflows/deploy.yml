@@ -1,38 +1,48 @@
-name: Debug SSH Chain (Fixed)
+name: Deploy via Bastion (Fixed)
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  debug:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout (not required but safe)
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Start SSH agent + load key
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Deploy via Bastion
+        uses: appleboy/ssh-action@v0.1.6
         with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ secrets.BASTION_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Connected to Bastion"
 
-      - name: Add known hosts (Bastion)
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+            mkdir -p ~/deploy-package
 
-      # STEP 1: Test Bastion only
-      - name: Test Bastion SSH
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "echo BASTION_OK"
+            echo "Receiving files..."
+            
+            # pull latest repo on bastion (since it has internet)
+            if [ ! -d ~/deploy-package/.git ]; then
+              git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
+            else
+              cd ~/deploy-package && git pull origin main
+            fi
 
-      # STEP 2: Test Bastion → Private EC2
-      - name: Test EC2 via Bastion
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
-            ssh -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'echo EC2_OK'
-          "
+            echo "Sending to private EC2..."
+
+            rsync -avz -e "ssh -o StrictHostKeyChecking=no" \
+              ~/deploy-package/ \
+              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
+
+            echo "Deploying on EC2..."
+
+            ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+              cd ~/devops-private-nginx-site
+              chmod +x deploy.sh
+              ./deploy.sh
+            '
