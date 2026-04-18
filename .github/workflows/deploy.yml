@@ -16,20 +16,21 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
+
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
           chmod 600 ~/.ssh/recovery-key
 
           ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # STEP 1: Run command on Bastion
-      - name: Deploy on Bastion
+      # STEP 1: connect to bastion
+      - name: Run on Bastion
         run: |
-          ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.BASTION_HOST }} "
-            ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.EC2_HOST }} '
-              cd ~/devops-private-nginx-site &&
-              git pull origin main &&
-              chmod +x deploy.sh &&
+          ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.BASTION_HOST }} << 'EOF'
+            ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.EC2_HOST }} << 'INNER'
+              cd ~/devops-private-nginx-site
+              git pull origin main
+              chmod +x deploy.sh
               ./deploy.sh
-            '
-          "
+            INNER
+          EOF
