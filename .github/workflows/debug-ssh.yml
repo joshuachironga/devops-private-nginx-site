@@ -1,0 +1,30 @@
+name: Debug SSH Chain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+
+          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
+
+      # STEP 1: TEST BASTION ONLY
+      - name: Test Bastion SSH
+        run: |
+          ssh -i ~/.ssh/key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "echo BASTION_OK"
+
+      # STEP 2: TEST EC2 VIA BASTION
+      - name: Test EC2 via Bastion
+        run: |
+          ssh -i ~/.ssh/key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
+            ssh -i ~/.ssh/key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'echo EC2_OK'
+          "
