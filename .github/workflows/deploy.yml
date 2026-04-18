@@ -1,7 +1,20 @@
-      - name: Debug SSH Deploy
-        run: |
-          set -x
+name: Debug SSH Deploy
 
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
           mkdir -p ~/.ssh
 
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
@@ -10,9 +23,11 @@
           ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-          echo "Testing Bastion connection..."
+      - name: Debug Bastion SSH
+        run: |
           ssh -vvv -i ~/.ssh/recovery-key ubuntu@${{ secrets.BASTION_HOST }} "echo BASTION_OK"
 
-          echo "Testing Private EC2 connection..."
+      - name: Debug EC2 via Bastion
+        run: |
           ssh -vvv -i ~/.ssh/recovery-key ubuntu@${{ secrets.BASTION_HOST }} \
-          "ssh -vvv -i ~/.ssh/recovery-key ubuntu@${{ secrets.EC2_HOST }} 'echo EC2_OK && ls'"
+          "ssh -vvv -i ~/.ssh/recovery-key ubuntu@${{ secrets.EC2_HOST }} 'echo EC2_OK'"
