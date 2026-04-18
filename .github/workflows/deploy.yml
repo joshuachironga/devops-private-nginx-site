@@ -1,4 +1,3 @@
-joshuachironga
 name: Deploy to Private EC2 via Bastion
 
 on:
@@ -17,12 +16,9 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-
-          # Write private key (safe format)
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
           chmod 600 ~/.ssh/recovery-key
 
-          # SSH config
           echo "Host bastion" >> ~/.ssh/config
           echo "  HostName ${{ secrets.BASTION_HOST }}" >> ~/.ssh/config
           echo "  User ubuntu" >> ~/.ssh/config
@@ -38,9 +34,8 @@ jobs:
 
           chmod 600 ~/.ssh/config
 
-      - name: Test SSH to Bastion
-        run: ssh -o ConnectTimeout=10 bastion "echo Connected to Bastion"
+      - name: Test SSH
+        run: ssh -o ConnectTimeout=10 bastion "echo Connected"
 
-      - name: Deploy to Private EC2
-        run: |
-          ssh private-ec2 "cd ~/devops-private-nginx-site && git pull origin main && chmod +x deploy.sh && ./deploy.sh"
+      - name: Deploy
+        run: ssh private-ec2 "cd ~/devops-private-nginx-site && git pull origin main && chmod +x deploy.sh && ./deploy.sh"
