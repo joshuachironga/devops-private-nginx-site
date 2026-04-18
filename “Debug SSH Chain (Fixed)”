@@ -1,0 +1,38 @@
+name: Debug SSH Chain (Fixed)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (not required but safe)
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent + load key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Add known hosts (Bastion)
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      # STEP 1: Test Bastion only
+      - name: Test Bastion SSH
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "echo BASTION_OK"
+
+      # STEP 2: Test Bastion → Private EC2
+      - name: Test EC2 via Bastion
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+          ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
+            ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'echo EC2_OK'
+          "
