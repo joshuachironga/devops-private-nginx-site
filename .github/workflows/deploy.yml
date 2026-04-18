@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
@@ -22,7 +22,8 @@ jobs:
           ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy via Bastion (2-step SSH)
+      # STEP 1: Run command on Bastion
+      - name: Deploy on Bastion
         run: |
           ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.BASTION_HOST }} "
             ssh -i ~/.ssh/recovery-key ubuntu@${{ secrets.EC2_HOST }} '
