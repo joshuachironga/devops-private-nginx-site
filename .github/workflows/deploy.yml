@@ -17,11 +17,11 @@ jobs:
         run: |
           mkdir -p ~/.ssh
 
-          # Write private key safely
+          # Write private key (safe format)
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
           chmod 600 ~/.ssh/recovery-key
 
-          # Create SSH config line-by-line (avoids YAML issues)
+          # SSH config
           echo "Host bastion" >> ~/.ssh/config
           echo "  HostName ${{ secrets.BASTION_HOST }}" >> ~/.ssh/config
           echo "  User ubuntu" >> ~/.ssh/config
@@ -38,7 +38,7 @@ jobs:
           chmod 600 ~/.ssh/config
 
       - name: Test SSH to Bastion
-        run: ssh -o ConnectTimeout=10 bastion "echo Connected"
+        run: ssh -o ConnectTimeout=10 bastion "echo Connected to Bastion"
 
       - name: Deploy to Private EC2
         run: |
