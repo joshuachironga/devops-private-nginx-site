@@ -1,4 +1,4 @@
-name: Deploy to Private EC2 via Bastion
+name: Bastion Hybrid Deploy (Production Style)
 
 on:
   push:
@@ -18,40 +18,31 @@ jobs:
           mkdir -p ~/.ssh
 
           # Load private key
-          printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
-          chmod 600 ~/.ssh/recovery-key
+          printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
 
-          # Trust hosts
+          # Trust bastion
           ssh-keyscan -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Debug Bastion Connection
+      - name: Upload code to Bastion
         run: |
-          ssh -vvv -i ~/.ssh/recovery-key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "echo BASTION_OK"
+          rsync -avz -e "ssh -i ~/.ssh/key" \
+          ./ ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:~/deploy-package/
 
-      - name: Debug EC2 Connection via Bastion
+      - name: Deploy to Private EC2 via Bastion
         run: |
-          ssh -vvv -i ~/.ssh/recovery-key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
-            ssh -vvv -i ~/.ssh/recovery-key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
-              echo EC2_OK
-              whoami
-              pwd
-              ls -la
-            '
-          "
+          ssh -i ~/.ssh/key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
+            rsync -avz -e 'ssh -i ~/.ssh/key' \
+            ~/deploy-package/ \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site &&
 
-      - name: Deploy Application
-        run: |
-          ssh -i ~/.ssh/recovery-key ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "
-            ssh -i ~/.ssh/recovery-key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
-              set -x
+            ssh -i ~/.ssh/key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} '
+              set -e
 
-              cd ~/devops-private-nginx-site || exit 1
+              cd ~/devops-private-nginx-site
 
-              git pull origin main || exit 1
+              chmod +x deploy.sh
 
-              chmod +x deploy.sh || exit 1
-
-              ./deploy.sh || exit 1
+              ./deploy.sh
             '
           "
