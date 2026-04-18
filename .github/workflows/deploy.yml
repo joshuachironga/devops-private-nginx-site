@@ -13,29 +13,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
           printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/recovery-key
           chmod 600 ~/.ssh/recovery-key
 
-          echo "Host bastion" >> ~/.ssh/config
-          echo "  HostName ${{ secrets.BASTION_HOST }}" >> ~/.ssh/config
-          echo "  User ubuntu" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/recovery-key" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+      - name: Start SSH agent
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/recovery-key
 
-          echo "Host private-ec2" >> ~/.ssh/config
-          echo "  HostName ${{ secrets.EC2_HOST }}" >> ~/.ssh/config
-          echo "  User ubuntu" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/recovery-key" >> ~/.ssh/config
-          echo "  ProxyJump bastion" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-
-          chmod 600 ~/.ssh/config
-
-      - name: Test SSH
-        run: ssh -o ConnectTimeout=10 bastion "echo Connected"
-
-      - name: Deploy
-        run: ssh private-ec2 "cd ~/devops-private-nginx-site && git pull origin main && chmod +x deploy.sh && ./deploy.sh"
+      - name: Deploy via Bastion to Private EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ProxyJump=ubuntu@${{ secrets.BASTION_HOST }} \
+              ubuntu@${{ secrets.EC2_HOST }} "
+            cd ~/devops-private-nginx-site &&
+            git pull origin main &&
+            chmod +x deploy.sh &&
+            ./deploy.sh
+          "
