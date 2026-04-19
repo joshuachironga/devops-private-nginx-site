@@ -18,17 +18,17 @@ jobs:
         with:
           host: ${{ secrets.BASTION_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.BASTION_KEY }}
 
           script: |
             echo "Connected to Bastion"
 
-            # Inject EC2 key into bastion session (correct formatting)
+            # Prepare SSH key for private EC2
             mkdir -p ~/.ssh
             printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
             chmod 600 ~/.ssh/github-key
 
-            # Clone fresh repo on bastion
+            # Get latest code on bastion
             rm -rf ~/deploy-package
             git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
