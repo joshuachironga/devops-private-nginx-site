@@ -1,48 +1,19 @@
-name: Deploy via Bastion (Fixed)
 
-on:
-  push:
-    branches:
-      - main
+echo "Connected to Bastion"
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+rm -rf ~/deploy-package
+git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+echo "Sending to private EC2..."
 
-      - name: Deploy via Bastion
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.BASTION_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "Connected to Bastion"
+rsync -avz -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
+  ~/deploy-package/ \
+  ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
 
-            mkdir -p ~/deploy-package
+echo "Deploying on EC2..."
 
-            echo "Receiving files..."
-            
-            # pull latest repo on bastion (since it has internet)
-            if [ ! -d ~/deploy-package/.git ]; then
-              git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
-            else
-              cd ~/deploy-package && git pull origin main
-            fi
-
-            echo "Sending to private EC2..."
-
-            rsync -avz -e "ssh -o StrictHostKeyChecking=no" \
-              ~/deploy-package/ \
-              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
-
-            echo "Deploying on EC2..."
-
-            ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
-              cd ~/devops-private-nginx-site
-              chmod +x deploy.sh
-              ./deploy.sh
-            '
+ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+  cd ~/devops-private-nginx-site
+  chmod +x deploy.sh
+  ./deploy.sh
+'
