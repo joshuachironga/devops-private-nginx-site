@@ -1,23 +1,47 @@
-echo "Connected to Bastion"
+name: Deploy to Private EC2 via Bastion
 
-# Write EC2 key to file on bastion (temporary)
-echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
-chmod 600 ~/.ssh/github-key
+on:
+  push:
+    branches:
+      - main
 
-# Clean and clone repo
-rm -rf ~/deploy-package
-git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-echo "Sending to private EC2..."
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-rsync -avz -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
-  ~/deploy-package/ \
-  ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
+      - name: Deploy via Bastion
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.BASTION_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
 
-echo "Deploying on EC2..."
+          script: |
+            echo "Connected to Bastion"
 
-ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
-  cd ~/devops-private-nginx-site
-  chmod +x deploy.sh
-  ./deploy.sh
-'
+            # Write EC2 key on bastion
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
+            chmod 600 ~/.ssh/github-key
+
+            # Clone repo
+            rm -rf ~/deploy-package
+            git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
+
+            echo "Sending to private EC2..."
+
+            rsync -avz -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
+              ~/deploy-package/ \
+              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
+
+            echo "Deploying on EC2..."
+
+            ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+              cd ~/devops-private-nginx-site
+              chmod +x deploy.sh
+              ./deploy.sh
+            '
