@@ -23,10 +23,13 @@ jobs:
           script: |
             echo "Connected to Bastion"
 
-            # Prepare SSH key for private EC2
+            # Prepare SSH for EC2 access
             mkdir -p ~/.ssh
-            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
-            chmod 600 ~/.ssh/github-key
+            chmod 700 ~/.ssh
+
+            # Write EC2 private key safely
+            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
+            chmod 600 ~/.ssh/ec2-key
 
             # Get latest code on bastion
             rm -rf ~/deploy-package
@@ -34,13 +37,13 @@ jobs:
 
             echo "Sending to private EC2..."
 
-            rsync -avz -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
+            rsync -avz -e "ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no" \
               ~/deploy-package/ \
               ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
 
             echo "Deploying on EC2..."
 
-            ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+            ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
               cd ~/devops-private-nginx-site
               chmod +x deploy.sh
               ./deploy.sh
