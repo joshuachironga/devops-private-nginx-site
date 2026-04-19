@@ -23,12 +23,12 @@ jobs:
           script: |
             echo "Connected to Bastion"
 
-            # Inject EC2 key into bastion session
+            # Inject EC2 key into bastion session (correct formatting)
             mkdir -p ~/.ssh
-            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
+            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
             chmod 600 ~/.ssh/github-key
 
-            # Clone repo
+            # Clone fresh repo on bastion
             rm -rf ~/deploy-package
             git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
