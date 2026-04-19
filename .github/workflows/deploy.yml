@@ -23,7 +23,7 @@ jobs:
           script: |
             echo "Connected to Bastion"
 
-            # Write EC2 key on bastion
+            # Inject EC2 key into bastion session
             mkdir -p ~/.ssh
             echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
             chmod 600 ~/.ssh/github-key
