@@ -21,30 +21,36 @@ jobs:
           key: ${{ secrets.BASTION_KEY }}
 
           script: |
+            set -e
+
             echo "Connected to Bastion"
 
-            # Prepare SSH for EC2 access
+            # Setup SSH key for private EC2
             mkdir -p ~/.ssh
             chmod 700 ~/.ssh
 
-            # Write EC2 private key safely
             printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
             chmod 600 ~/.ssh/ec2-key
 
-            # Get latest code on bastion
+            # Clean old repo copy
             rm -rf ~/deploy-package
+
+            # Clone latest code
             git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
-            echo "Sending to private EC2..."
+            echo "Sending code to private EC2..."
 
             rsync -avz -e "ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no" \
               ~/deploy-package/ \
               ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
 
-            echo "Deploying on EC2..."
+            echo "Running deployment on private EC2..."
 
             ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
+              set -e
               cd ~/devops-private-nginx-site
               chmod +x deploy.sh
               ./deploy.sh
             '
+
+            echo "Deployment finished successfully!"
