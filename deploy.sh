@@ -1,22 +1,27 @@
 #!/bin/bash
-
 set -e
 
-echo "🚀 Starting deployment..."
+echo "Pull latest code..."
+git pull origin main || true
 
-cd ~/devops-private-nginx-site
+echo "Build new Docker image..."
+docker build -t nginx-app .
 
-echo "🛑 Stopping old container..."
-docker stop mysite || true
+echo "Run new container on port 8080..."
+docker run -d -p 8080:80 --name nginx-new nginx-app
 
-echo "🗑 Removing old container..."
-docker rm mysite || true
+echo "Wait for container to be ready..."
+sleep 5
 
-echo "📦 Building new Docker image..."
-docker build -t mysite .
+echo "Stopping old container..."
+docker stop nginx-container || true
+docker rm nginx-container || true
 
-echo "🚀 Running new container..."
-docker run -d -p 80:80 --name mysite mysite
+echo "Starting new container on port 80..."
+docker run -d -p 80:80 --name nginx-container nginx-app
 
-echo "✅ Deployment complete!"
-docker ps
+echo "Cleaning up temporary container..."
+docker stop nginx-new || true
+docker rm nginx-new || true
+
+echo "Deployment complete!"
