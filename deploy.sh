@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "Pull latest code..."
-git pull origin main || true
-
 echo "Build new Docker image..."
 docker build -t nginx-app .
 
