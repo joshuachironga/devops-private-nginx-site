@@ -32,10 +32,10 @@ jobs:
             printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
             chmod 600 ~/.ssh/ec2-key
 
-            # Clean old repo copy
+            # Clean previous deployment package
             rm -rf ~/deploy-package
 
-            # Clone latest code
+            # Clone latest code from GitHub (ONLY on Bastion)
             git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
             echo "Sending code to private EC2..."
