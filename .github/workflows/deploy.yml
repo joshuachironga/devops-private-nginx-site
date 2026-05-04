@@ -35,7 +35,7 @@ jobs:
             # Clean previous deployment package
             rm -rf ~/deploy-package
 
-            # Clone latest code on Bastion (has internet)
+            # Clone latest code on Bastion
             git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
 
             echo "Sending code to private EC2..."
