@@ -1,4 +1,4 @@
-name: Deploy to Private EC2 via Bastion
+name: CI/CD Deploy to Private EC2
 
 on:
   push:
@@ -10,47 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Deploy via Bastion
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.BASTION_HOST }}
-          username: ubuntu
-          key: ${{ secrets.BASTION_KEY }}
+    - name: Deploy via Bastion
+      uses: appleboy/ssh-action@v0.1.6
 
-          script: |
-            set -e
+      with:
+        host: ${{ secrets.BASTION_IP }}
+        username: ubuntu
+        key: ${{ secrets.BASTION_KEY }}
 
-            echo "Connected to Bastion"
+        script: |
+          ssh ubuntu@10.0.141.140 << 'EOF'
+            cd ~/devops-private-nginx-site
 
-            # Setup SSH key for private EC2
-            mkdir -p ~/.ssh
-            chmod 700 ~/.ssh
+            git pull origin main
 
-            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
-            chmod 600 ~/.ssh/ec2-key
+            chmod +x deploy.sh
 
-            # Clean previous deployment package
-            rm -rf ~/deploy-package
-
-            # Clone latest code on Bastion
-            git clone https://github.com/joshuachironga/devops-private-nginx-site.git ~/deploy-package
-
-            echo "Sending code to private EC2..."
-
-            rsync -avz -e "ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no" \
-              ~/deploy-package/ \
-              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site
-
-            echo "Running deployment on private EC2..."
-
-            ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} '
-              set -e
-              cd ~/devops-private-nginx-site
-              chmod +x deploy.sh
-              ./deploy.sh
-            '
-
-            echo "Deployment finished successfully!"
+            ./deploy.sh
+          EOF
