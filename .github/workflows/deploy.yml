@@ -10,24 +10,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Deploy via Bastion
-      uses: appleboy/ssh-action@v0.1.6
+      - name: Deploy via Bastion Host
+        uses: appleboy/ssh-action@v0.1.6
 
-      with:
-        host: ${{ secrets.BASTION_IP }}
-        username: ubuntu
-        key: ${{ secrets.BASTION_KEY }}
+        with:
+          host: ${{ secrets.BASTION_IP }}
+          username: ubuntu
+          key: ${{ secrets.BASTION_KEY }}
+          port: 22
 
-        script: |
-          ssh ubuntu@10.0.141.140 << 'EOF'
-            cd ~/devops-private-nginx-site
+          script: |
+            echo "✅ Connected to Bastion"
 
-            git pull origin main
+            # Create SSH directory on Bastion
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
 
-            chmod +x deploy.sh
+            # Add private EC2 SSH key
+            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
+            chmod 600 ~/.ssh/ec2-key
 
-            ./deploy.sh
-          EOF
+            echo "🚀 Connecting to Private EC2..."
+
+            ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+
+              echo "✅ Inside Private EC2"
+
+              cd ~/devops-private-nginx-site
+
+              # Ensure clean state (production-safe deployment)
+              git fetch origin main
+              git reset --hard origin/main
+
+              chmod +x deploy.sh
+
+              ./deploy.sh
+
+            EOF
