@@ -1,59 +1,64 @@
 name: CI/CD Deploy to Private EC2
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-```
-steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  - name: Deploy via Bastion Host
-    uses: appleboy/ssh-action@v0.1.6
+      - name: Deploy via Bastion Host
+        uses: appleboy/ssh-action@v0.1.6
 
-    with:
-      host: ${{ secrets.BASTION_IP }}
-      username: ubuntu
-      key: ${{ secrets.BASTION_KEY }}
-      port: 22
+        with:
+          host: ${{ secrets.BASTION_IP }}
+          username: ubuntu
+          key: ${{ secrets.BASTION_KEY }}
+          port: 22
 
-      script: |
+          script: |
 
-        echo "✅ Connected to Bastion"
+            echo "✅ Connected to Bastion"
 
-        # Update repository on Bastion
-        cd ~/devops-private-nginx-site
+            cd ~/devops-private-nginx-site
 
-        git fetch origin main
-        git reset --hard origin/main
+            git fetch origin main
+            git reset --hard origin/main
 
-        echo "✅ Bastion repo updated"
+            echo "✅ Bastion repo updated"
 
-        # Sync files to Private EC2
-        rsync -avz --delete \
-          -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
-          ~/devops-private-nginx-site/ \
-          ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site/
+            # Create SSH key for private EC2
+            mkdir -p ~/.ssh
 
-        echo "✅ Files synced to Private EC2"
+            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/github-key
 
-        # Deploy on Private EC2
-        ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            chmod 600 ~/.ssh/github-key
 
-          echo "✅ Inside Private EC2"
+            # Sync files to Private EC2
+            rsync -avz --delete \
+              -e "ssh -i ~/.ssh/github-key -o StrictHostKeyChecking=no" \
+              ~/devops-private-nginx-site/ \
+              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site/
 
-          cd ~/devops-private-nginx-site
+            echo "✅ Files synced to Private EC2"
 
-          chmod +x deploy.sh
+            # SSH into Private EC2
+            ssh -i ~/.ssh/github-key \
+              -o StrictHostKeyChecking=no \
+              ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
 
-          ./deploy.sh
+              echo "✅ Inside Private EC2"
 
-        EOF
-```
+              cd ~/devops-private-nginx-site
 
+              chmod +x deploy.sh
+
+              ./deploy.sh
+
+            EOF
