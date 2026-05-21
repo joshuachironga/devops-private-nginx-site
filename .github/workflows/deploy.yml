@@ -23,27 +23,30 @@ jobs:
           port: 22
 
           script: |
+
             echo "✅ Connected to Bastion"
 
-            # Create SSH directory on Bastion
-            mkdir -p ~/.ssh
-            chmod 700 ~/.ssh
+            # Pull latest repo on Bastion
+            cd ~/devops-private-nginx-site
 
-            # Add private EC2 SSH key
-            printf "%s\n" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2-key
-            chmod 600 ~/.ssh/ec2-key
+            git fetch origin main
+            git reset --hard origin/main
 
-            echo "🚀 Connecting to Private EC2..."
+            echo "✅ Bastion repo updated"
 
-            ssh -i ~/.ssh/ec2-key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            # Sync files to Private EC2
+            rsync -avz --delete \
+              ~/devops-private-nginx-site/ \
+              ubuntu@${{ secrets.EC2_HOST }}:~/devops-private-nginx-site/
+
+            echo "✅ Files synced to Private EC2"
+
+            # Run deployment on Private EC2
+            ssh ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
 
               echo "✅ Inside Private EC2"
 
               cd ~/devops-private-nginx-site
-
-              # Ensure clean state (production-safe deployment)
-              git fetch origin main
-              git reset --hard origin/main
 
               chmod +x deploy.sh
 
